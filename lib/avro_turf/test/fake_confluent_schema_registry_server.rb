@@ -18,8 +18,19 @@ class FakeConfluentSchemaRegistryServer < Sinatra::Base
   helpers do
     def parse_schema
       request.body.rewind
-      JSON.parse(request.body.read).fetch("schema").tap do |schema|
-        Avro::Schema.parse(schema)
+      request_body = JSON.parse(request.body.read)
+      puts "request_body: #{request_body.inspect}"
+      request_body.fetch("schema").tap do |schema|
+        names = request_body.fetch("references", []).inject({}) do |acc, ref|
+          ref_subject = ref.fetch("subject")
+          ids_for_subject = SUBJECTS[ref_subject]
+          schema = SCHEMAS.select.with_index { |_, i| ids_for_subject.include?(i) }.first
+          acc[ref_subject] = Avro::Schema.parse(schema)
+          acc
+        end
+
+        puts "REFS: #{names.inspect}"
+        Avro::Schema.real_parse(MultiJson.load(schema), names)
       end
     end
 

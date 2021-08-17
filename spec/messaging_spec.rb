@@ -37,6 +37,27 @@ describe AvroTurf::Messaging do
   end
   let(:schema) { Avro::Schema.parse(schema_json) }
 
+  let(:book_message) { { "author" => { "full_name" => "John Doe" }, "title" => "Awesome Book" } }
+  let(:book_schema_json) do
+    <<-AVSC
+      {
+        "name": "book",
+        "type": "record",
+        "fields": [
+          {
+            "type": "string",
+            "name": "title"
+          },
+          {
+            "type": "person",
+            "name": "author"
+          }
+        ]
+      }
+    AVSC
+  end
+  #let(:book_schema) { Avro::Schema.real_parse(book_schema_json, {"person" => schema}) }
+
   before do
     FileUtils.mkdir_p("spec/schemas")
   end
@@ -72,14 +93,20 @@ describe AvroTurf::Messaging do
 
   shared_examples_for 'encoding and decoding with the schema from registry' do
     before do
-      registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger)
+      registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger) #avro.instance_variable_get("@registry")
       registry.register('person', schema)
       registry.register('people', schema)
+      registry.register('book', book_schema_json, [{"subject" => "person", "version" => 1}])
     end
 
     it 'encodes and decodes messages' do
       data = avro.encode(message, subject: 'person', version: 1)
       expect(avro.decode(data)).to eq message
+    end
+
+    it 'encodes and decodes messages with references' do
+      data = avro.encode(book_message, subject: 'book', version: 1)
+      expect(avro.decode(data)).to eq book_message
     end
 
     it "allows specifying a reader's schema by subject and version" do
@@ -105,6 +132,7 @@ describe AvroTurf::Messaging do
       registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger)
       registry.register('person', schema)
       registry.register('people', schema)
+      registry.register('book', book_schema_json, [{"subject" => "person", "version" => 1}])
     end
 
     it 'encodes and decodes messages' do
@@ -216,6 +244,7 @@ describe AvroTurf::Messaging do
         registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger)
         registry.register('person', schema)
         registry.register('people', schema)
+        registry.register('book', book_schema_json, [{"subject" => "person", "version" => 1}])
       end
 
       it 'encodes and decodes messages' do
