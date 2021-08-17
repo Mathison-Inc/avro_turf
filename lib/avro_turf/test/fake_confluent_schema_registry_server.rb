@@ -2,6 +2,7 @@ require 'sinatra/base'
 
 class FakeConfluentSchemaRegistryServer < Sinatra::Base
   SUBJECTS = Hash.new { Array.new }
+  REFERENCES = {}
   SCHEMAS = []
   CONFIGS = Hash.new
   SUBJECT_NOT_FOUND = { error_code: 40401, message: 'Subject not found' }.to_json.freeze
@@ -16,22 +17,30 @@ class FakeConfluentSchemaRegistryServer < Sinatra::Base
   end
 
   helpers do
-    def parse_schema
+    def parse_schema(subject = nil)
       request.body.rewind
       request_body = JSON.parse(request.body.read)
       puts "request_body: #{request_body.inspect}"
       request_body.fetch("schema").tap do |schema|
-        names = request_body.fetch("references", []).inject({}) do |acc, ref|
+        references = request_body.fetch("references", [])
+        REFERENCES[subject] = references if subject
+        names = references.inject({}) do |acc, ref|
           ref_subject = ref.fetch("subject")
           ids_for_subject = SUBJECTS[ref_subject]
-          schema = SCHEMAS.select.with_index { |_, i| ids_for_subject.include?(i) }.first
-          acc[ref_subject] = Avro::Schema.parse(schema)
+          ref_schema = SCHEMAS.select.with_index { |_, i| ids_for_subject.include?(i) }.first
+          acc[ref_subject] = Avro::Schema.parse(ref_schema)
           acc
         end
 
+        puts SCHEMAS.inspect
         puts "REFS: #{names.inspect}"
         Avro::Schema.real_parse(MultiJson.load(schema), names)
       end
+    end
+
+    def _parse_schema
+      request.body.rewind
+      JSON.parse(request.body.read).fetch("schema")
     end
 
     def parse_config
@@ -45,7 +54,7 @@ class FakeConfluentSchemaRegistryServer < Sinatra::Base
   end
 
   post "/subjects/:subject/versions" do
-    schema = parse_schema
+    schema = parse_schema(params[:subject])
     ids_for_subject = SUBJECTS[params[:subject]]
 
     schemas_for_subject =
@@ -87,6 +96,7 @@ class FakeConfluentSchemaRegistryServer < Sinatra::Base
   end
 
   get "/subjects/:subject/versions/:version" do
+    puts "REQUEST of #{params.inspect}"
     schema_ids = SUBJECTS[params[:subject]]
     halt(404, SUBJECT_NOT_FOUND) if schema_ids.empty?
 
@@ -103,7 +113,8 @@ class FakeConfluentSchemaRegistryServer < Sinatra::Base
       name: params[:subject],
       version: schema_ids.index(schema_id) + 1,
       id: schema_id,
-      schema: schema
+      schema: schema,
+      references: REFERENCES.fetch(params[:subject], [])
     }.to_json
   end
 

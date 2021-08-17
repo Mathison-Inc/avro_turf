@@ -56,7 +56,7 @@ describe AvroTurf::Messaging do
       }
     AVSC
   end
-  #let(:book_schema) { Avro::Schema.real_parse(book_schema_json, {"person" => schema}) }
+  let(:book_schema) { Avro::Schema.real_parse(MultiJson.load(book_schema_json), {"person" => schema}) }
 
   before do
     FileUtils.mkdir_p("spec/schemas")
@@ -95,8 +95,8 @@ describe AvroTurf::Messaging do
     before do
       registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger) #avro.instance_variable_get("@registry")
       registry.register('person', schema)
-      registry.register('people', schema)
-      registry.register('book', book_schema_json, [{"subject" => "person", "version" => 1}])
+      #registry.register('people', schema)
+      registry.register('book', book_schema_json, [{"name" => "person", "subject" => "person", "version" => 1}])
     end
 
     it 'encodes and decodes messages' do
@@ -132,7 +132,7 @@ describe AvroTurf::Messaging do
       registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger)
       registry.register('person', schema)
       registry.register('people', schema)
-      registry.register('book', book_schema_json, [{"subject" => "person", "version" => 1}])
+      registry.register('book', book_schema_json, [{"name" => "person", "subject" => "person", "version" => 1}])
     end
 
     it 'encodes and decodes messages' do
@@ -180,14 +180,14 @@ describe AvroTurf::Messaging do
       allow(registry).to receive(:register).and_call_original
       message = { "full_name" => "John Doe" }
       avro.encode(message, schema_name: "person")
-      expect(registry).to have_received(:register).with("person", anything)
+      expect(registry).to have_received(:register).with("person", anything, [])
     end
 
     it "allows specifying a schema registry subject" do
       allow(registry).to receive(:register).and_call_original
       message = { "full_name" => "John Doe" }
       avro.encode(message, schema_name: "person", subject: "people")
-      expect(registry).to have_received(:register).with("people", anything)
+      expect(registry).to have_received(:register).with("people", anything, [])
     end
   end
 
@@ -244,7 +244,7 @@ describe AvroTurf::Messaging do
         registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger)
         registry.register('person', schema)
         registry.register('people', schema)
-        registry.register('book', book_schema_json, [{"subject" => "person", "version" => 1}])
+        registry.register('book', book_schema_json, [{"name" => "person", "subject" => "person", "version" => 1}])
       end
 
       it 'encodes and decodes messages' do
@@ -295,14 +295,14 @@ describe AvroTurf::Messaging do
         allow(registry).to receive(:register).and_call_original
         message = { "full_name" => "John Doe" }
         avro.encode(message, schema_name: "person")
-        expect(registry).to have_received(:register).with("person", anything)
+        expect(registry).to have_received(:register).with("person", anything, [])
       end
 
       it "allows specifying a schema registry subject" do
         allow(registry).to receive(:register).and_call_original
         message = { "full_name" => "John Doe" }
         avro.encode(message, schema_name: "person", subject: "people")
-        expect(registry).to have_received(:register).with("people", anything)
+        expect(registry).to have_received(:register).with("people", anything, [])
       end
     end
 
@@ -405,7 +405,7 @@ describe AvroTurf::Messaging do
         subject { avro.register_schema(schema_name: schema_name, namespace: namespace) }
 
         before do
-          allow(registry).to receive(:register).with(schema.fullname, schema).and_return(schema_id)
+          allow(registry).to receive(:register).with(schema.fullname, schema, []).and_return(schema_id)
         end
 
         it 'registers schema in registry' do
@@ -419,7 +419,7 @@ describe AvroTurf::Messaging do
         let(:subj) { 'subject' }
 
         before do
-          allow(registry).to receive(:register).with(subj, schema).and_return(schema_id)
+          allow(registry).to receive(:register).with(subj, schema, []).and_return(schema_id)
         end
 
         it 'registers schema in registry' do

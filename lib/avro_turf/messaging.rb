@@ -197,7 +197,7 @@ class AvroTurf
         acc[ref_subject] = ref_schema
         acc
       end
-      
+      puts "REAL NAMES: #{names.inspect} for #{references.inspect}"
       schema = Avro::Schema.real_parse(MultiJson.load(schema_data.fetch('schema')), names)
       [schema, schema_id]
     end
