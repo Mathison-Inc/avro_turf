@@ -95,7 +95,7 @@ describe AvroTurf::Messaging do
     before do
       registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger) #avro.instance_variable_get("@registry")
       registry.register('person', schema)
-      #registry.register('people', schema)
+      registry.register('people', schema)
       registry.register('book', book_schema_json, [{"name" => "person", "subject" => "person", "version" => 1}])
     end
 
@@ -132,7 +132,6 @@ describe AvroTurf::Messaging do
       registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger)
       registry.register('person', schema)
       registry.register('people', schema)
-      registry.register('book', book_schema_json, [{"name" => "person", "subject" => "person", "version" => 1}])
     end
 
     it 'encodes and decodes messages' do
@@ -244,7 +243,6 @@ describe AvroTurf::Messaging do
         registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger)
         registry.register('person', schema)
         registry.register('people', schema)
-        registry.register('book', book_schema_json, [{"name" => "person", "subject" => "person", "version" => 1}])
       end
 
       it 'encodes and decodes messages' do
