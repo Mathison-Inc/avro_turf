@@ -38,6 +38,27 @@ describe AvroTurf::Messaging do
   end
   let(:schema) { Avro::Schema.parse(schema_json) }
 
+  let(:book_message) { { "author" => { "full_name" => "John Doe" }, "title" => "Awesome Book" } }
+  let(:book_schema_json) do
+    <<-AVSC
+      {
+        "name": "book",
+        "type": "record",
+        "fields": [
+          {
+            "type": "string",
+            "name": "title"
+          },
+          {
+            "type": "person",
+            "name": "author"
+          }
+        ]
+      }
+    AVSC
+  end
+  let(:book_schema) { Avro::Schema.real_parse(MultiJson.load(book_schema_json), {"person" => schema}) }
+
   before do
     FileUtils.mkdir_p("spec/schemas")
   end
@@ -76,11 +97,17 @@ describe AvroTurf::Messaging do
       registry = AvroTurf::ConfluentSchemaRegistry.new(registry_url, logger: logger, path_prefix: path_prefix)
       registry.register('person', schema)
       registry.register('people', schema)
+      registry.register('book', book_schema_json, [{"name" => "person", "subject" => "person", "version" => 1}])
     end
 
     it 'encodes and decodes messages' do
       data = avro.encode(message, subject: 'person', version: 1)
       expect(avro.decode(data)).to eq message
+    end
+
+    it 'encodes and decodes messages with references' do
+      data = avro.encode(book_message, subject: 'book', version: 1)
+      expect(avro.decode(data)).to eq book_message
     end
 
     it "allows specifying a reader's schema by subject and version" do
@@ -153,14 +180,14 @@ describe AvroTurf::Messaging do
       allow(registry).to receive(:register).and_call_original
       message = { "full_name" => "John Doe" }
       avro.encode(message, schema_name: "person")
-      expect(registry).to have_received(:register).with("person", anything)
+      expect(registry).to have_received(:register).with("person", anything, [])
     end
 
     it "allows specifying a schema registry subject" do
       allow(registry).to receive(:register).and_call_original
       message = { "full_name" => "John Doe" }
       avro.encode(message, schema_name: "person", subject: "people")
-      expect(registry).to have_received(:register).with("people", anything)
+      expect(registry).to have_received(:register).with("people", anything, [])
     end
   end
 
@@ -267,14 +294,14 @@ describe AvroTurf::Messaging do
         allow(registry).to receive(:register).and_call_original
         message = { "full_name" => "John Doe" }
         avro.encode(message, schema_name: "person")
-        expect(registry).to have_received(:register).with("person", anything)
+        expect(registry).to have_received(:register).with("person", anything, [])
       end
 
       it "allows specifying a schema registry subject" do
         allow(registry).to receive(:register).and_call_original
         message = { "full_name" => "John Doe" }
         avro.encode(message, schema_name: "person", subject: "people")
-        expect(registry).to have_received(:register).with("people", anything)
+        expect(registry).to have_received(:register).with("people", anything, [])
       end
     end
 
@@ -377,7 +404,7 @@ describe AvroTurf::Messaging do
         subject { avro.register_schema(schema_name: schema_name, namespace: namespace) }
 
         before do
-          allow(registry).to receive(:register).with(schema.fullname, schema).and_return(schema_id)
+          allow(registry).to receive(:register).with(schema.fullname, schema, []).and_return(schema_id)
         end
 
         it 'registers schema in registry' do
@@ -391,7 +418,7 @@ describe AvroTurf::Messaging do
         let(:subj) { 'subject' }
 
         before do
-          allow(registry).to receive(:register).with(subj, schema).and_return(schema_id)
+          allow(registry).to receive(:register).with(subj, schema, []).and_return(schema_id)
         end
 
         it 'registers schema in registry' do
