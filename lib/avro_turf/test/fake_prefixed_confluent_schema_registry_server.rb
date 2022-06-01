@@ -26,6 +26,13 @@ class FakePrefixedConfluentSchemaRegistryServer < FakeConfluentSchemaRegistrySer
     { schema: schema }.to_json
   end
 
+  get "/prefix/schemas/ids/:schema_id/versions" do
+    schema = SCHEMAS.at(params[:schema_id].to_i)
+    halt(404, SCHEMA_NOT_FOUND) unless schema
+    subject = JSON.parse(schema)["name"]
+    [{ subject: subject, version: 1 }].to_json
+  end
+
   get "/prefix/subjects" do
     SUBJECTS.keys.to_json
   end
@@ -53,7 +60,8 @@ class FakePrefixedConfluentSchemaRegistryServer < FakeConfluentSchemaRegistrySer
       name: params[:subject],
       version: schema_ids.index(schema_id) + 1,
       id: schema_id,
-      schema: schema
+      schema: schema,
+      references: REFERENCES.fetch(params[:subject], [])
     }.to_json
   end
 
